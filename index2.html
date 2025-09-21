@@ -276,6 +276,341 @@
         cursor: pointer;
     " title="Chat with AI">
         🤖
+
+        <!-- Chat panel, styles and behavior — paste this directly under your existing div -->
+<style>
+  /* Chat panel styles (paste under your button) */
+  .chat-panel{
+    position: fixed;
+    right: 20px;
+    bottom: 100px;
+    width: 360px;
+    max-width: calc(100% - 40px);
+    height: 520px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(2,6,23,0.6);
+    overflow: hidden;
+    z-index: 10000;
+    transform-origin: bottom right;
+    transform: translateY(30px) scale(0.96);
+    opacity: 0;
+    transition: all 180ms ease;
+    display:flex;
+    flex-direction:column;
+    border: 1px solid rgba(255,255,255,0.03);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    color: #e6eef8;
+  }
+  .chat-panel.open{
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  .chat-header{
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+  }
+  .chat-header h3{ margin:0; font-size:15px; }
+  .chat-header p{ margin:0; font-size:12px; color:#9fb0c6; }
+  .chat-body{
+    padding:12px;
+    flex:1;
+    overflow:auto;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .bubble{ max-width:85%; padding:10px 12px; border-radius:12px; font-size:14px; line-height:1.3; }
+  .bot{ background: linear-gradient(180deg, rgba(64,115,158,0.14), rgba(64,115,158,0.08)); color:inherit; align-self:flex-start; }
+  .user{ background: rgba(255,255,255,0.03); color:inherit; align-self:flex-end; }
+  .controls{ padding:12px; border-top:1px solid rgba(255,255,255,0.02); display:flex; gap:8px; align-items:center; }
+  .option-btn{ background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.03); padding:8px 10px; border-radius:8px; cursor:pointer; color:inherit; font-size:14px; text-align:left; }
+  .small{ font-size:12px; color:#9fb0c6; }
+  .progress{ height:8px; background: rgba(255,255,255,0.03); border-radius:999px; width:100%; overflow:hidden; }
+  .progress > i{ display:block; height:100%; width:0%; background: linear-gradient(90deg,#40739e, #6a9ac6); transition: width 300ms ease; }
+  .result{ padding:14px; border-radius:10px; background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02); }
+  .percent{ font-size:34px; font-weight:700; margin:0; }
+  .recommend{ margin-top:10px; padding:10px; border-radius:8px; background: rgba(217,83,79,0.08); border:1px solid rgba(217,83,79,0.12); color:#d9534f; font-weight:600; }
+  .ok{ margin-top:10px; padding:10px; border-radius:8px; background: rgba(40,167,69,0.06); border:1px solid rgba(40,167,69,0.10); color:#28a745; font-weight:600; }
+  @media (max-width:420px){ .chat-panel{ right:10px; left:10px; width:auto; bottom:100px; height:62vh; } }
+</style>
+
+<!-- Panel HTML -->
+<div class="chat-panel" id="chatPanel" role="dialog" aria-hidden="true" aria-labelledby="chatTitle" style="display:none;">
+  <div class="chat-header">
+    <div>
+      <h3 id="chatTitle">Check-in — Mental Health</h3>
+      <p class="small">Short questions for quick monitoring • Confidential on this device</p>
+    </div>
+    <div style="margin-left:auto;">
+      <button id="closePanel" style="background:transparent;border:none;color:#9fb0c6;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+  </div>
+
+  <div class="chat-body" id="chatBody">
+    <!-- content injected by JS -->
+  </div>
+
+  <div class="controls" id="controls">
+    <div style="width:100%;">
+      <div class="progress" aria-hidden="true"><i id="progBar"></i></div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <div class="small" id="qCount">Question 0/0</div>
+        <div style="flex:1"></div>
+        <div class="small">Confidential — not stored remotely</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const questions = [
+      "Over the last 2 weeks, how often have you felt little interest or pleasure in doing things?",
+      "Over the last 2 weeks, how often have you felt down, depressed, or hopeless?",
+      "How often have you had trouble falling or staying asleep, or sleeping too much?",
+      "How often have you felt tired or had little energy?",
+      "How often have you had poor appetite or overeating?",
+      "How often have you felt bad about yourself or felt like a failure?"
+    ];
+
+    const choices = [
+      { label: "Never", value: 0 },
+      { label: "Rarely", value: 1 },
+      { label: "Sometimes", value: 2 },
+      { label: "Often", value: 3 }
+    ];
+
+    // Elements (your button id must be aiChatButton)
+    const chatButton = document.getElementById('aiChatButton');
+    const panel = document.getElementById('chatPanel');
+    const closeBtn = document.getElementById('closePanel');
+    const chatBody = document.getElementById('chatBody');
+    const progBar = document.getElementById('progBar');
+    const qCount = document.getElementById('qCount');
+
+    let index = -1;
+    let answers = [];
+
+    if(!chatButton){
+      console.warn('No #aiChatButton found — ensure your button has id="aiChatButton"');
+      return;
+    }
+
+    function openPanel(){
+      panel.style.display = 'flex';
+      setTimeout(()=> panel.classList.add('open'), 12);
+      panel.setAttribute('aria-hidden','false');
+      if(index === -1) startConversation();
+    }
+    function closePanelFn(){
+      panel.classList.remove('open');
+      setTimeout(()=> panel.style.display = 'none', 180);
+      panel.setAttribute('aria-hidden','true');
+    }
+
+    chatButton.addEventListener('click', openPanel);
+    closeBtn.addEventListener('click', closePanelFn);
+
+    function startConversation(){
+      index = 0;
+      answers = [];
+      chatBody.innerHTML = '';
+      showBot("Hi — I'm a short check-in bot. I'll ask a few quick questions about how you've been feeling. This is not a diagnosis. Ready?");
+      setTimeout(showStartButtons, 600);
+      updateProgress();
+    }
+
+    function showBot(text){
+      const d = document.createElement('div');
+      d.className = 'bubble bot';
+      d.innerText = text;
+      chatBody.appendChild(d);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function showUser(text){
+      const d = document.createElement('div');
+      d.className = 'bubble user';
+      d.innerText = text;
+      chatBody.appendChild(d);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function showStartButtons(){
+      const container = document.createElement('div');
+      container.style.display = 'flex';
+      container.style.gap = '8px';
+      container.style.flexWrap = 'wrap';
+      container.style.marginTop = '6px';
+
+      const startBtn = document.createElement('button');
+      startBtn.className = 'option-btn';
+      startBtn.innerText = 'Start check-in';
+      startBtn.onclick = () => {
+        showUser('Start check-in');
+        container.remove();
+        askQuestion(index);
+      };
+
+      const laterBtn = document.createElement('button');
+      laterBtn.className = 'option-btn';
+      laterBtn.innerText = 'Maybe later';
+      laterBtn.onclick = () => {
+        showUser('Maybe later');
+        container.remove();
+        showBot('No problem — open me anytime with the robot button.');
+      };
+
+      container.appendChild(startBtn);
+      container.appendChild(laterBtn);
+      chatBody.appendChild(container);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function askQuestion(i){
+      if(i >= questions.length){
+        showBot('Thanks — calculating your results now...');
+        setTimeout(showResults, 700);
+        updateProgress();
+        return;
+      }
+      showBot(questions[i]);
+
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.flexDirection = 'column';
+      row.style.gap = '8px';
+      row.style.marginTop = '6px';
+
+      choices.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = c.label;
+        btn.onclick = () => {
+          answers[i] = c.value;
+          showUser(c.label);
+          row.remove();
+          index = i + 1;
+          updateProgress();
+          setTimeout(()=> askQuestion(index), 350);
+        };
+        row.appendChild(btn);
+      });
+
+      chatBody.appendChild(row);
+      chatBody.scrollTop = chatBody.scrollHeight;
+      updateProgress();
+    }
+
+    function updateProgress(){
+      const total = questions.length;
+      const answered = answers.filter(a => typeof a === 'number').length;
+      const pct = Math.round((answered / total) * 100);
+      progBar.style.width = pct + '%';
+      qCount.innerText = (answered >= total ? 'Completed' : `Question ${Math.min(answered+1,total)}/${total}`);
+    }
+
+    function showResults(){
+      const max = questions.length * 3;
+      const sum = answers.reduce((s,v)=> s + (typeof v === 'number' ? v : 0), 0);
+      const inverted = max - sum;
+      const healthPct = Math.round((inverted / max) * 100);
+
+      const card = document.createElement('div');
+      card.className = 'result';
+
+      const percent = document.createElement('div');
+      percent.className = 'percent';
+      percent.innerText = healthPct + '%';
+      card.appendChild(percent);
+
+      const analysis = document.createElement('div');
+      analysis.className = 'small';
+      let text = '';
+      if(healthPct >= 75){
+        text = 'Generally good well-being. Keep healthy habits.';
+      } else if(healthPct >= 50){
+        text = 'Some areas of concern — try self-care and monitoring.';
+      } else if(healthPct >= 40){
+        text = 'Noticeable difficulties — consider reaching out to someone.';
+      } else {
+        text = 'You may be struggling. It is recommended to seek counselling or professional support.';
+      }
+      analysis.innerText = text;
+      card.appendChild(analysis);
+
+      if(healthPct < 40){
+        const rec = document.createElement('div');
+        rec.className = 'recommend';
+        rec.innerText = 'Recommendation: Please consider contacting a counsellor or mental health professional. If you’re in immediate danger, contact emergency services.';
+        card.appendChild(rec);
+      } else {
+        const ok = document.createElement('div');
+        ok.className = 'ok';
+        ok.innerText = 'Tip: Try breathing exercises, short walks, and talking with a friend.';
+        card.appendChild(ok);
+      }
+
+      const actions = document.createElement('div');
+      actions.style.display = 'flex';
+      actions.style.gap = '8px';
+      actions.style.marginTop = '10px';
+
+      const retake = document.createElement('button');
+      retake.className = 'option-btn';
+      retake.innerText = 'Retake';
+      retake.onclick = () => {
+        card.remove();
+        index = 0;
+        answers = [];
+        updateProgress();
+        askQuestion(0);
+      };
+
+      const saveLocal = document.createElement('button');
+      saveLocal.className = 'option-btn';
+      saveLocal.innerText = 'Save (Local)';
+      saveLocal.onclick = () => {
+        const entry = { date: new Date().toISOString(), score: healthPct, answers: answers.slice() };
+        const key = 'psychCheckHistory';
+        const list = JSON.parse(localStorage.getItem(key) || '[]');
+        list.push(entry);
+        localStorage.setItem(key, JSON.stringify(list));
+        showBot('Saved locally to this browser.');
+      };
+
+      actions.appendChild(retake);
+      actions.appendChild(saveLocal);
+      card.appendChild(actions);
+
+      const disc = document.createElement('div');
+      disc.className = 'small';
+      disc.style.marginTop = '10px';
+      disc.style.color = '#9fb0c6';
+      disc.innerText = 'Disclaimer: This is a brief self-check tool for monitoring only — not a medical diagnosis. For clinical concerns, consult a licensed professional.';
+      card.appendChild(disc);
+
+      chatBody.appendChild(card);
+      chatBody.scrollTop = chatBody.scrollHeight;
+      updateProgress();
+    }
+
+    // keyboard accessibility
+    chatButton.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' ') openPanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && panel.classList.contains('open')) closePanelFn();
+    });
+
+  })();
+</script>
+
     </button>
 </div>
 
