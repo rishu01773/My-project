@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sign Up</title>
+  <style>
+    :root{
+      --blue:#0b74ff;
+      --card:#ffffff;
+      --danger:#d9534f;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background: var(--card);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      color:#123;
+    }
+
+    .container{
+      width:100%;
+      max-width:420px;
+      background:var(--card);
+      border-radius:12px;
+      box-shadow:0 10px 30px rgba(2,6,23,0.18);
+      padding:28px;
+    }
+
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:#3b4b6b}
+
+    .field{margin-bottom:14px}
+    label{display:block;font-size:13px;margin-bottom:6px}
+    input[type="text"], input[type="password"], input[type="tel"], input[type="email"]{
+      width:100%;
+      box-sizing:border-box;
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid #d6e6ff;
+      outline:none;
+      font-size:15px;
+    }
+    input:focus{box-shadow:0 0 0 3px rgba(11,116,255,0.12);}
+
+    .btn{
+      display:inline-block;
+      background:var(--blue);
+      color:white;
+      padding:10px 14px;
+      border-radius:8px;
+      border:none;
+      font-weight:600;
+      cursor:pointer;
+      width:100%;
+      font-size:15px;
+    }
+
+    .muted{font-size:13px;color:#617196;margin-top:10px;text-align:center}
+
+    .footer-link{display:block;text-align:center;margin-top:16px;color:#123;font-size:14px}
+    .footer-link a{color:inherit;text-decoration:underline}
+
+    .error{
+      color:var(--danger);
+      font-size:13px;
+      margin-top:6px;
+    }
+
+    /* Modal */
+    .modal-backdrop{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.45);
+      z-index:40;
+    }
+    .modal{
+      width:100%;max-width:480px;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 20px 40px rgba(2,6,23,0.25);
+    }
+    .modal h2{margin:0 0 8px;font-size:18px}
+
+    .inline-error{color:var(--danger);font-size:13px;margin-top:6px}
+
+    @media (max-width:520px){
+      .container{padding:18px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Create your account</h1>
+    <p class="lead">Enter your email address or phone number to get started.</p>
+
+    <div id="main-form">
+      <div class="field">
+        <label for="contact">Email address or phone number</label>
+        <input id="contact" type="text" placeholder="you@example.com or +911234567890" />
+      </div>
+
+      <button id="open-modal" class="btn">Continue</button>
+
+      <div class="muted">By creating an account you agree to our terms.</div>
+
+      <div class="footer-link">Already have an account? <a href="#">Log in</a></div>
+    </div>
+  </div>
+
+  <div id="backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2>Set password</h2>
+
+      <div class="field">
+        <label for="password">Create password</label>
+        <input id="password" type="password" placeholder="Minimum 8 chars, include letters and numbers" />
+      </div>
+
+      <div class="field">
+        <label for="confirm">Confirm password</label>
+        <input id="confirm" type="password" placeholder="Re-type password" />
+      </div>
+
+      <!-- Redirects to welcome.html -->
+      <a href="index2.html"><button class="btn">Create account</button></a>
+    </div>
+  </div>
+
+  <script>
+    const contactEl = document.getElementById('contact');
+    const openModalBtn = document.getElementById('open-modal');
+    const backdrop = document.getElementById('backdrop');
+
+    openModalBtn.addEventListener('click', ()=>{
+      const val = contactEl.value.trim();
+      if(!val){ alert('Enter email or phone'); return; }
+      backdrop.style.display='flex';
+    });
+
+    backdrop.addEventListener('click',(ev)=>{
+      if(ev.target === backdrop){
+        backdrop.style.display='none';
+      }
+    });
+  </script>
+</body>
+</html>
